@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
@@ -13,6 +14,7 @@ from htmlTemplate import css, bot_template, user_template
 
 #NOTE: langchain has removed memory and chains from main package, and is using some other technics..
 #langchain_classic is used to access older version of langchain, it contains deprecated modules like memory and chains
+
 
 
 
@@ -60,7 +62,12 @@ def get_vectorstore(text_chunks):
     return vector_store
 
 def get_conversation_chain(vector_store):
-    llm = ChatOpenAI(temperature=0)  
+    llm = ChatOpenAI(
+        openai_api_base="https://ai.megallm.io/v1",
+        openai_api_key=os.getenv("OPENAI_API_KEY"),  # Or os.getenv("MEGALLM_API_KEY") if renamed
+        model="gpt-5-mini",  # Use MegaLLM's model
+        temperature=0
+    )
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)  #keep full transcript as memory
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
@@ -69,6 +76,9 @@ def get_conversation_chain(vector_store):
     )
     return conversation_chain
     
+def handle_user_question(user_question):
+    answer = st.session_state.conversation({"question": user_question})
+    st.write(answer)  #complete object with 'answer' and 'chat_history' keys!
 
 
 def main():
@@ -82,9 +92,11 @@ def main():
 
 
     st.header("📄 Chat with your docs!")
-    st.text_input("Ask a question about your documents:")
-    
-    st.write(user_template.replace("{{MSG}}", "User's question goes here"), unsafe_allow_html=True)
+    user_question = st.text_input("Ask a question about your documents:")
+    if user_question:
+        handle_user_question(user_question)
+
+    st.write(user_template.replace("{{MSG}}", user_question), unsafe_allow_html=True)
     st.write(bot_template.replace("{{MSG}}", "Bot's response goes here"), unsafe_allow_html=True)
   
     
