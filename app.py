@@ -2,9 +2,19 @@ import streamlit as st
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain_text_splitters import CharacterTextSplitter, RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceInstructEmbeddings, HuggingFaceEmbeddings
+
+from langchain_classic.memory import ConversationBufferMemory
+from langchain_classic.chains import ConversationalRetrievalChain
+
+from htmlTemplate import css, bot_template, user_template
+
+#NOTE: langchain has removed memory and chains from main package, and is using some other technics..
+#langchain_classic is used to access older version of langchain, it contains deprecated modules like memory and chains
+
+
 
 def get_pdf_text(uploaded_files):
     text = ""
@@ -13,8 +23,6 @@ def get_pdf_text(uploaded_files):
         for page in pdf_reader.pages:
             text += page.extract_text()
     return text
-
-
 
 # def get_text_chunks(text, chunk_size=500, overlap=50):
 #     text_chunks = []
@@ -40,7 +48,6 @@ def get_text_chunks(raw_text):
     chunks = text_splitter.split_text(raw_text)
     return chunks
 
-
 def get_vectorstore(text_chunks):
 
     # method 1: using openai
@@ -52,18 +59,43 @@ def get_vectorstore(text_chunks):
     vector_store = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
     return vector_store
 
+def get_conversation_chain(vector_store):
+    llm = ChatOpenAI(temperature=0)  
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)  #keep full transcript as memory
+    conversation_chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=vector_store.as_retriever(),
+        memory=memory
+    )
+    return conversation_chain
+    
+
 
 def main():
     load_dotenv()
     st.set_page_config(page_title="Chat with your docs", layout="wide", page_icon="📄")
 
+    st.write(css, unsafe_allow_html=True)
+
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = None #initialize variable in session state if not present
+
+
     st.header("📄 Chat with your docs!")
     st.text_input("Ask a question about your documents:")
+    
+    st.write(user_template.replace("{{MSG}}", "User's question goes here"), unsafe_allow_html=True)
+    st.write(bot_template.replace("{{MSG}}", "Bot's response goes here"), unsafe_allow_html=True)
+  
+    
+    
     with st.sidebar:
         # st.header("Upload your documents")
         # uploaded_files = st.file_uploader("Choose PDF files", type="pdf", accept_multiple_files=True)
         # if uploaded_files:
         #     st.success(f"Uploaded {len(uploaded_files)} files successfully!")
+
+
 
         st.subheader("Upload your documents")
         uploaded_files = st.file_uploader("Choose PDF files and click on Process", type="pdf", accept_multiple_files=True)
@@ -84,7 +116,14 @@ def main():
 
                 #create the vector store
                 vector_store = get_vectorstore(text_chunks)
-                st.write(vector_store)
+                # st.write(vector_store)
+
+                # create conversation chain
+                conversation = get_conversation_chain(vector_store)
+                st.session_state.conversation = conversation  #store this variable in session state so that when streamlit reloads, this variable is not lost 
+                st.success("Processing completed!")           #also this is used when we want to use this var outside of the scope of this if block (here sidebar)
+
+                
 
 
     

@@ -7,7 +7,6 @@ openai
 langchain-text-splitters
 langchain-openai
 langchain-community 
+langchain-classic
 faiss-cpu
 sentence-transformers
-InstructorEmbeddings
-
