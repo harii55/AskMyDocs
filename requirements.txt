@@ -5,3 +5,9 @@ python-dotenv
 faiss-cpu
 openai
 langchain-text-splitters
+langchain-openai
+langchain-community 
+faiss-cpu
+sentence-transformers
+InstructorEmbeddings
+

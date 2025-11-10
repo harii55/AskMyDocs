@@ -1,7 +1,10 @@
 import streamlit as st
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
-from langchain_text_splitters import CharacterTextSplitter
+from langchain_text_splitters import CharacterTextSplitter, RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceInstructEmbeddings, HuggingFaceEmbeddings
 
 def get_pdf_text(uploaded_files):
     text = ""
@@ -10,6 +13,7 @@ def get_pdf_text(uploaded_files):
         for page in pdf_reader.pages:
             text += page.extract_text()
     return text
+
 
 
 # def get_text_chunks(text, chunk_size=500, overlap=50):
@@ -22,16 +26,31 @@ def get_pdf_text(uploaded_files):
 #         start += chunk_size - overlap
 #     return text_chunks
 
-
 def get_text_chunks(raw_text):
+
     text_splitter = CharacterTextSplitter(
         separator="\n",
         chunk_size=1000,
         chunk_overlap=200,
         length_function=len
     )
+
+    # text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+
     chunks = text_splitter.split_text(raw_text)
     return chunks
+
+
+def get_vectorstore(text_chunks):
+
+    # method 1: using openai
+    # embeddings = OpenAIEmbeddings()
+
+    # method 2: using huggingface
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+    vector_store = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
+    return vector_store
 
 
 def main():
@@ -60,10 +79,12 @@ def main():
 
                 #get the text chunks
                 text_chunks = get_text_chunks(raw_text)
-                st.write(text_chunks)
+                # st.write(text_chunks)
 
 
                 #create the vector store
+                vector_store = get_vectorstore(text_chunks)
+                st.write(vector_store)
 
 
     
